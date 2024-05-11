@@ -1,34 +1,30 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: webapp-golang
+  name: webapp
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: webapp-golang
+      app: webapp
   template:
     metadata:
       labels:
-        app: webapp-golang
+        app: webapp
     spec:
       containers:
-      - name: webapp-golang
-        image: webapp-golang:1.0.0
+      - name: webapp-golang-minikube
+        image: webapp-golang
         imagePullPolicy: IfNotPresent
         resources:
           requests:
             cpu: 100m
             memory: 100Mi
         ports:
-          - containerPort: 1224
+          - containerPort: 9090
         env:
           - name: REDIS_HOST
-            value: redis-master
+            value: redis-data
           - name: REDIS_PORT
             value: "6379"
-
-
-
-
 
