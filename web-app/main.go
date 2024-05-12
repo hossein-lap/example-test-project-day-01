@@ -1,18 +1,31 @@
 package main
 
 import (
-	// "encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"strings"
-
 	// "reflect"
 
 	"database/sql"
-	// "github.com/go-sql-driver/mysql"
+	_ "github.com/go-sql-driver/mysql"
+
+	// "context"
+    "github.com/redis/go-redis/v9"
+)
+
+const (
+	port_redis string = "6349"
+	port_databse string = "3360"
+	port_webapp string = "9090"
+
+	minikube_ip string = "192.168.46.2"
+	database_password string = "test1234"
+)
+
+var (
 )
 
 type RequestHandler struct {}
@@ -22,11 +35,13 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	mux.Handle("/filename/", &RequestHandler{})
+	mux.Handle("/filestorage/", &RequestHandler{})
 	mux.Handle("/redis/", &RequestHandler{})
 	mux.Handle("/database/", &RequestHandler{})
 
-	http.ListenAndServe(":1224", mux) // server
+	test("database-mysql")
+
+	http.ListenAndServe(fmt.Sprintf(":%s", port_webapp), mux) // server
 }
 // }}}
 
@@ -35,8 +50,9 @@ func (h *RequestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
  	// vars
 	request_type := r.Method
-	section := strings.SplitN(r.URL.String(), "/", 4)[1]
-	key := strings.SplitN(r.URL.String(), "/", 4)[2]
+	tmp := strings.SplitN(r.URL.String(), "/", 3)
+	section := tmp[1]
+	key := tmp[2]
 	params := r.URL.Query()
 	value := params.Get(key)
 
@@ -44,6 +60,11 @@ func (h *RequestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			log.Printf("<%s> FATAL IO %s\n", section, err.Error())
+		}
+
+		if key == "" {
+			log.Printf("[%s] key is empty", section)
+			return
 		}
 
 		if len(body) != 0 {
@@ -72,8 +93,10 @@ func (h *RequestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		case section == "database":
+			fmt.Printf("[%s] path: %s\n", section, key)
 			return
 		case section == "filestorage":
+			fmt.Printf("[%s] path: %s\n", section, key)
 			return
 		default:
 			fmt.Printf("Default\n")
@@ -117,6 +140,8 @@ func (h *RequestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		case section == "database":
 			return
 		case section == "filestorage":
+			fmt.Printf("[%s] path: %s\n", section, value)
+			test(value)
 			return
 		default:
 			fmt.Printf("Default\n")
@@ -137,82 +162,29 @@ func getEnv(key, defaultValue string) string {
 }
 // }}}
 
-// database handler {{{
-type Json struct {
-	Key string `json:"key"`
-	Value string `json:"value"`
-}
+func test(tmp string) {
 
-type DBModel struct {
-	ID uint64
-	MyFieldName Json `json:"my_field_name"`
-}
+	// database{{{
 
-func DatabaseHandler(table string) {
-	db, err := sql.Open("mysql", fmt.Sprintf("root:password@tcp(127.0.0.1)/%s", table))
+	sql_url := fmt.Sprintf("root:%s@tcp(%s:%s)/test", database_password, minikube_ip, port_databse)
+	db, err := sql.Open("mysql", sql_url)
 	if err != nil {
 		panic(err.Error())
 	}
 	defer db.Close()
+	fmt.Printf("[test] <%s> Success!\n", tmp)
 
-	results, err := db.Query(fmt.Sprintf("SELECT * FROM %s", table))
+	// }}}
 
-	if err != nil {
-		panic(err.Error())
-	}
+	// cache{{{
 
-	for results.Next() {
-		var row DBModel
-		err := results.Scan(&row.ID, &row.MyFieldName)
-		if err != nil {
-			panic(err.Error())
-		}
-		fmt.Println(row.MyFieldName.Key)
-	}
+	client := redis.NewClient(&redis.Options{
+		Addr: fmt.Sprintf("%s:%s", minikube_ip, port_redis),
+		Password: "", // no password
+		DB: 0,  // default DB
+	})
+	fmt.Println(client)
+
+	// }}}
+
 }
-// }}}
-
-// // get json {{{
-// func getJSON(sqlString string) (string, error) {
-//     rows, err := db.Query(sqlString)
-//     if err != nil {
-//         return "", err
-//     }
-//     defer rows.Close()
-//     columns, err := rows.Columns()
-//     if err != nil {
-//         return "", err
-//     }
-//     count := len(columns)
-//     tableData := make([]map[string]interface{}, 0)
-//     values := make([]interface{}, count)
-//     valuePtrs := make([]interface{}, count)
-//     for rows.Next() {
-//         for i := 0; i < count; i++ {
-//           valuePtrs[i] = &values[i]
-//         }
-//         rows.Scan(valuePtrs...)
-//         entry := make(map[string]interface{})
-//         for i, col := range columns {
-//             var v interface{}
-//             val := values[i]
-//             b, ok := val.([]byte)
-//             if ok {
-//                 v = string(b)
-//             } else {
-//                 v = val
-//             }
-//             entry[col] = v
-//         }
-//         tableData = append(tableData, entry)
-//     }
-//     jsonData, err := json.Marshal(tableData)
-//     if err != nil {
-//         return "", err
-//     }
-//     fmt.Println(string(jsonData))
-//     return string(jsonData), nil 
-// }
-// // }}}
-
-
