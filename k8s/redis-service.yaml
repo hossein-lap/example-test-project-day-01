@@ -5,11 +5,15 @@ metadata:
     app: redis
   name: redis
 spec:
-  type: ClusterIP
+  type: LoadBalancer
+  externalIPs:
+  - 192.168.49.2
   ports:
-  - name: "redis-service"
+  - protocol: "TCP"
+    name: "redis-service"
     port: 6379
     targetPort: 6379
+    nodePort: 30379
   selector:
     app: redis
 
