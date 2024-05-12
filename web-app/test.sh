@@ -1,31 +1,39 @@
 #!/bin/sh
 
-addr="localhost"
+port="9090"
+addr="192.168.49.2:${port}"
 
-printf '%s\n' "[get]: json"
-curl \
-	--header "Content-Type: application/json" \
-	--request GET \
-	--data '{"username":"abc","password":"xyz", "age": 30}' \
-	${addr}:1224/redis/val
+# filestorage {{{
+test_func() {
+	section="${1}"
+	arg="${2}"
+	data="${3}"
 
-printf '%s\n' "[post]: json"
-curl \
-	--header "Content-Type: application/json" \
-	--request POST \
-	--data '{"username":"abc","password":"xyz"}' \
-	${addr}:1224/redis/val
+	if [ -z "${data}" ] || [ "${data}" = "" ]; then
+		data='{"car": "Mitsubishi", "tuner": true}'
+	fi
+
+	curl \
+		--header "Content-Type: application/json" \
+		--request GET \
+		${addr}/${section}/${arg}
+
+	curl \
+		--header "Content-Type: application/json" \
+		--request POST \
+		--data "${data}" \
+		${addr}/${section}/${arg}
 
 
-printf '%s\n' "[get]: key"
-curl \
-	--request GET \
-	${addr}:1224/redis/val
+	curl \
+		--request GET \
+		${addr}/${section}/${arg}
 
-printf '%s\n' "[post]: key"
-curl \
-	--request POST \
-	${addr}:1224/redis/val
+	curl \
+		--request POST \
+		${addr}/${section}/${arg}
 
-echo
+}
+# }}}
 
+test_func "redis" "key-string" '{"data": "true", "type": "json", "testing": true}'
